@@ -5,6 +5,7 @@
 <title>Дневник смен</title>
 <style>
   :root { --bg:#f6f7f9; --card:#fff; --fg:#1b1f24; --muted:#6b7280; --accent:#2563eb; --line:#e5e7eb; --err:#dc2626; }
+  @media (max-width:420px) { .grid { grid-template-columns:repeat(2,1fr); } }
   @media (prefers-color-scheme: dark) { :root { --bg:#111418; --card:#1b1f24; --fg:#e5e7eb; --muted:#9ca3af; --line:#2d333b; } }
   * { box-sizing: border-box; }
   body { margin:0; font:15px/1.4 system-ui, sans-serif; background:var(--bg); color:var(--fg); }
@@ -13,7 +14,7 @@
   .nav input { flex:1; }
   button, input, select { font:inherit; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--fg); }
   button { cursor:pointer; } button.primary { background:var(--accent); color:#fff; border:0; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:8px; margin-bottom:16px; }
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:16px; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px; }
   .card small { color:var(--muted); display:block; } .card b { font-size:20px; font-variant-numeric:tabular-nums; }
   table { width:100%; border-collapse:collapse; background:var(--card); border-radius:10px; overflow:hidden; }
@@ -54,6 +55,7 @@ let pendingId = null;
 
 async function load() {
   const date = $('date').value;
+  history.replaceState(null, '', '?date=' + date);
   const r = await fetch('/api/trips?date=' + date).then((r) => r.json());
   const s = r.summary;
   $('summary').innerHTML = [
@@ -90,7 +92,7 @@ $('add').onsubmit = async (e) => {
 $('add').oninput = () => { pendingId = null; };
 
 fetch('/api/days').then((r) => r.json()).then(({ days }) => {
-  $('date').value = days.at(-1) ?? new Date().toISOString().slice(0, 10);
+  $('date').value = new URLSearchParams(location.search).get('date') ?? days.at(-1) ?? new Date().toISOString().slice(0, 10);
   load();
 });
 </script>
