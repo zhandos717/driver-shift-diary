@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Дневник смен</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --fg:#1b1f24; --muted:#6b7280; --accent:#2563eb; --line:#e5e7eb; --err:#dc2626; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#111418; --card:#1b1f24; --fg:#e5e7eb; --muted:#9ca3af; --line:#2d333b; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.4 system-ui, sans-serif; background:var(--bg); color:var(--fg); }
+  main { max-width:720px; margin:0 auto; padding:16px; }
+  .nav { display:flex; gap:8px; align-items:center; margin-bottom:16px; }
+  .nav input { flex:1; }
+  button, input, select { font:inherit; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--fg); }
+  button { cursor:pointer; } button.primary { background:var(--accent); color:#fff; border:0; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:8px; margin-bottom:16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px; }
+  .card small { color:var(--muted); display:block; } .card b { font-size:20px; font-variant-numeric:tabular-nums; }
+  table { width:100%; border-collapse:collapse; background:var(--card); border-radius:10px; overflow:hidden; }
+  td, th { padding:8px 10px; border-bottom:1px solid var(--line); text-align:left; font-variant-numeric:tabular-nums; }
+  td.n, th.n { text-align:right; } .empty { color:var(--muted); text-align:center; padding:24px; }
+  form { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:8px; margin-top:16px; }
+  #msg { margin-top:8px; min-height:1.4em; } #msg.err { color:var(--err); }
+</style>
+</head>
+<body><main>
+  <h1>Дневник смен</h1>
+  <div class="nav">
+    <button id="prev" aria-label="Предыдущий день">←</button>
+    <input type="date" id="date">
+    <button id="next" aria-label="Следующий день">→</button>
+  </div>
+  <div class="grid" id="summary"></div>
+  <table><thead><tr><th>Время</th><th>Оплата</th><th class="n">Сумма</th><th class="n">Комиссия</th></tr></thead><tbody id="trips"></tbody></table>
+
+  <h2>Добавить поездку</h2>
+  <form id="add">
+    <input name="start" type="time" required title="Начало">
+    <input name="end" type="time" required title="Окончание">
+    <input name="amount" type="number" min="1" placeholder="Сумма" required>
+    <input name="commission" type="number" min="0" placeholder="Комиссия" required>
+    <select name="payment"><option value="card">Карта</option><option value="cash">Наличные</option></select>
+    <button class="primary">Добавить</button>
+  </form>
+  <div id="msg"></div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const money = (n) => n.toLocaleString('ru-RU') + ' ₸';
+const hhmm = (iso) => iso.slice(11, 16);
+const shift = (d, k) => { const x = new Date(d + 'T00:00:00Z'); x.setUTCDate(x.getUTCDate() + k); return x.toISOString().slice(0, 10); };
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+let pendingId = null;
+
+async function load() {
+  const date = $('date').value;
+  const r = await fetch('/api/trips?date=' + date).then((r) => r.json());
+  const s = r.summary;
+  $('summary').innerHTML = [
+    ['Поездок', s.count], ['Выручка', money(s.revenue)], ['Комиссия', money(s.commission)], ['На руки', money(s.net)],
+    ['Наличные', `${money(s.cash.amount)} · ${s.cash.count}`], ['Карта', `${money(s.card.amount)} · ${s.card.count}`],
+  ].map(([k, v]) => `<div class="card"><small>${k}</small><b>${v}</b></div>`).join('');
+  $('trips').innerHTML = r.trips.length
+    ? r.trips.map((t) => `<tr><td>${hhmm(t.start)}–${hhmm(t.end)}</td><td>${t.payment === 'cash' ? 'Наличные' : 'Карта'}</td><td class="n">${money(t.amount)}</td><td class="n">${money(t.commission)}</td></tr>`).join('')
+    : '<tr><td colspan="4" class="empty">Поездок нет</td></tr>';
+}
+
+$('prev').onclick = () => { $('date').value = shift($('date').value, -1); load(); };
+$('next').onclick = () => { $('date').value = shift($('date').value, 1); load(); };
+$('date').onchange = load;
+
+$('add').onsubmit = async (e) => {
+  e.preventDefault();
+  const f = new FormData(e.target), d = $('date').value;
+  let endDay = d;
+  if (f.get('end') <= f.get('start')) endDay = shift(d, 1); // поездка через полночь
+  // id генерируется один раз на заполненную форму: повторный клик/ретрай после сбоя сети не создаст дубль
+  pendingId ??= 'web-' + crypto.randomUUID();
+  const body = {
+    id: pendingId,
+    start: `${d}T${f.get('start')}:00+05:00`, end: `${endDay}T${f.get('end')}:00+05:00`,
+    amount: Number(f.get('amount')), commission: Number(f.get('commission')), payment: f.get('payment'),
+  };
+  const res = await fetch('/api/trips', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const j = await res.json();
+  $('msg').className = res.ok ? '' : 'err';
+  $('msg').textContent = res.ok ? (j.duplicate ? 'Эта поездка уже сохранена' : 'Поездка добавлена') : j.errors.map(esc).join('; ');
+  if (res.ok) { pendingId = null; e.target.reset(); load(); }
+};
+$('add').oninput = () => { pendingId = null; };
+
+fetch('/api/days').then((r) => r.json()).then(({ days }) => {
+  $('date').value = days.at(-1) ?? new Date().toISOString().slice(0, 10);
+  load();
+});
+</script>
+</body></html>
