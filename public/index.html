@@ -4,28 +4,71 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Дневник смен</title>
 <style>
-  :root { --bg:#f6f7f9; --card:#fff; --fg:#1b1f24; --muted:#6b7280; --accent:#2563eb; --line:#e5e7eb; --err:#dc2626; }
-  @media (max-width:420px) { .grid { grid-template-columns:repeat(2,1fr); } }
-  @media (prefers-color-scheme: dark) { :root { --bg:#111418; --card:#1b1f24; --fg:#e5e7eb; --muted:#9ca3af; --line:#2d333b; } }
+  :root {
+    color-scheme: light;
+    --bg:#f6f7f9; --card:#fff; --fg:#1b1f24; --muted:#6b7280; --accent:#2563eb; --accent-fg:#fff;
+    --line:#d9dde3; --hover:#eef1f5; --err:#dc2626; --ok:#15803d;
+    --chevron:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none' stroke='%236b7280' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1.5l5 5 5-5'/%3E%3C/svg%3E");
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg:#111418; --card:#1b1f24; --fg:#e5e7eb; --muted:#9ca3af; --accent:#3b82f6; --line:#2d333b; --hover:#252b33; --err:#f87171; --ok:#4ade80;
+      --chevron:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none' stroke='%239ca3af' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1.5l5 5 5-5'/%3E%3C/svg%3E");
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg:#111418; --card:#1b1f24; --fg:#e5e7eb; --muted:#9ca3af; --accent:#3b82f6; --line:#2d333b; --hover:#252b33; --err:#f87171; --ok:#4ade80;
+    --chevron:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none' stroke='%239ca3af' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1.5l5 5 5-5'/%3E%3C/svg%3E");
+  }
   * { box-sizing: border-box; }
   body { margin:0; font:15px/1.4 system-ui, sans-serif; background:var(--bg); color:var(--fg); }
   main { max-width:720px; margin:0 auto; padding:16px; }
+  header { display:flex; justify-content:space-between; align-items:center; gap:12px; }
   .nav { display:flex; gap:8px; align-items:center; margin-bottom:16px; }
   .nav input { flex:1; }
-  button, input, select { font:inherit; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--fg); }
-  button { cursor:pointer; } button.primary { background:var(--accent); color:#fff; border:0; }
+  button, input, select {
+    font:inherit; height:40px; padding:0 12px; border:1px solid var(--line); border-radius:8px;
+    background:var(--card); color:var(--fg); min-width:0; width:100%;
+  }
+  .nav button { width:40px; padding:0; flex:none; }
+  button { cursor:pointer; } button:hover { background:var(--hover); }
+  button:disabled { opacity:.6; cursor:progress; }
+  button.primary { background:var(--accent); color:var(--accent-fg); border-color:transparent; font-weight:600; }
+  button.primary:hover { filter:brightness(1.08); }
+  select { appearance:none; -webkit-appearance:none; padding-right:36px; background:var(--card) var(--chevron) no-repeat right 14px center; cursor:pointer; }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+  .theme { display:flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .theme button { width:auto; height:32px; border:0; border-radius:0; padding:0 10px; font-size:13px; color:var(--muted); }
+  .theme button[aria-pressed="true"] { background:var(--hover); color:var(--fg); font-weight:600; }
   .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:16px; }
+  @media (max-width:420px) { .grid { grid-template-columns:repeat(2,1fr); } }
   .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px; }
   .card small { color:var(--muted); display:block; } .card b { font-size:20px; font-variant-numeric:tabular-nums; }
-  table { width:100%; border-collapse:collapse; background:var(--card); border-radius:10px; overflow:hidden; }
+  table { width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--line); border-radius:10px; overflow:hidden; border-spacing:0; }
   td, th { padding:8px 10px; border-bottom:1px solid var(--line); text-align:left; font-variant-numeric:tabular-nums; }
+  tr:last-child td { border-bottom:0; }
   td.n, th.n { text-align:right; } .empty { color:var(--muted); text-align:center; padding:24px; }
   form { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:8px; margin-top:16px; }
-  #msg { margin-top:8px; min-height:1.4em; } #msg.err { color:var(--err); }
+  label { display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--muted); }
+  label > input, label > select { font-size:15px; }
+  form > button { align-self:end; }
+  #msg { margin-top:8px; min-height:1.4em; color:var(--ok); } #msg.err { color:var(--err); }
 </style>
+<script>
+  try { const t = localStorage.getItem('theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch {}
+</script>
 </head>
 <body><main>
-  <h1>Дневник смен</h1>
+  <header>
+    <h1>Дневник смен</h1>
+    <div class="theme" role="group" aria-label="Тема">
+      <button type="button" data-theme-choice="auto">Авто</button>
+      <button type="button" data-theme-choice="light">Светлая</button>
+      <button type="button" data-theme-choice="dark">Тёмная</button>
+    </div>
+  </header>
   <div class="nav">
     <button id="prev" aria-label="Предыдущий день">←</button>
     <input type="date" id="date">
@@ -36,11 +79,11 @@
 
   <h2>Добавить поездку</h2>
   <form id="add">
-    <input name="start" type="time" required title="Начало">
-    <input name="end" type="time" required title="Окончание">
-    <input name="amount" type="number" min="1" placeholder="Сумма" required>
-    <input name="commission" type="number" min="0" placeholder="Комиссия" required>
-    <select name="payment"><option value="card">Карта</option><option value="cash">Наличные</option></select>
+    <label>Начало<input name="start" type="time" required></label>
+    <label>Окончание<input name="end" type="time" required></label>
+    <label>Сумма, ₸<input name="amount" type="number" min="1" inputmode="numeric" required></label>
+    <label>Комиссия, ₸<input name="commission" type="number" min="0" inputmode="numeric" required></label>
+    <label>Оплата<select name="payment"><option value="card">Карта</option><option value="cash">Наличные</option></select></label>
     <button class="primary">Добавить</button>
   </form>
   <div id="msg"></div>
@@ -50,21 +93,74 @@ const $ = (id) => document.getElementById(id);
 const money = (n) => n.toLocaleString('ru-RU') + ' ₸';
 const hhmm = (iso) => iso.slice(11, 16);
 const shift = (d, k) => { const x = new Date(d + 'T00:00:00Z'); x.setUTCDate(x.getUTCDate() + k); return x.toISOString().slice(0, 10); };
-const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
-let pendingId = null;
+let offset = '+05:00';
+let loadSeq = 0;
+
+function todayInOffset() {
+  const [, sign, h, m] = /([+-])(\d{2}):(\d{2})/.exec(offset);
+  const shiftMs = (sign === '-' ? -1 : 1) * (+h * 60 + +m) * 60_000;
+  return new Date(Date.now() + shiftMs).toISOString().slice(0, 10);
+}
+
+function showMsg(text, isError) {
+  $('msg').className = isError ? 'err' : '';
+  $('msg').textContent = text;
+}
+
+async function api(path, init) {
+  let res;
+  try {
+    res = await fetch(path, init);
+  } catch {
+    throw new Error('Нет связи с сервером');
+  }
+  const body = await res.json().catch(() => null);
+  if (!body) throw new Error(`Сервер ответил ${res.status}`);
+  return { res, body };
+}
 
 async function load() {
   const date = $('date').value;
   history.replaceState(null, '', '?date=' + date);
-  const r = await fetch('/api/trips?date=' + date).then((r) => r.json());
-  const s = r.summary;
-  $('summary').innerHTML = [
-    ['Поездок', s.count], ['Выручка', money(s.revenue)], ['Комиссия', money(s.commission)], ['На руки', money(s.net)],
-    ['Наличные', `${money(s.cash.amount)} · ${s.cash.count}`], ['Карта', `${money(s.card.amount)} · ${s.card.count}`],
-  ].map(([k, v]) => `<div class="card"><small>${k}</small><b>${v}</b></div>`).join('');
-  $('trips').innerHTML = r.trips.length
-    ? r.trips.map((t) => `<tr><td>${hhmm(t.start)}–${hhmm(t.end)}</td><td>${t.payment === 'cash' ? 'Наличные' : 'Карта'}</td><td class="n">${money(t.amount)}</td><td class="n">${money(t.commission)}</td></tr>`).join('')
-    : '<tr><td colspan="4" class="empty">Поездок нет</td></tr>';
+  const seq = ++loadSeq;
+  try {
+    const { res, body } = await api('/api/trips?date=' + date);
+    if (seq !== loadSeq) return; // пока ждали ответ, пользователь переключил день
+    if (!res.ok) throw new Error(body.errors.join('; '));
+    render(body);
+  } catch (e) {
+    if (seq === loadSeq) showMsg(e.message, true);
+  }
+}
+
+function render({ summary: s, trips }) {
+  const cell = (k, v) => {
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.append(Object.assign(document.createElement('small'), { textContent: k }), Object.assign(document.createElement('b'), { textContent: v }));
+    return div;
+  };
+  $('summary').replaceChildren(
+    cell('Поездок', s.count), cell('Выручка', money(s.revenue)), cell('Комиссия', money(s.commission)),
+    cell('На руки', money(s.net)), cell('Наличные', `${money(s.cash.amount)} · ${s.cash.count}`), cell('Карта', `${money(s.card.amount)} · ${s.card.count}`),
+  );
+  const rows = trips.map((t) => {
+    const tr = document.createElement('tr');
+    for (const [text, cls] of [[`${hhmm(t.start)}–${hhmm(t.end)}`], [t.payment === 'cash' ? 'Наличные' : 'Карта'], [money(t.amount), 'n'], [money(t.commission), 'n']]) {
+      tr.append(Object.assign(document.createElement('td'), { textContent: text, className: cls ?? '' }));
+    }
+    return tr;
+  });
+  if (!rows.length) rows.push(Object.assign(document.createElement('tr'), { innerHTML: '<td colspan="4" class="empty">Поездок нет</td>' }));
+  $('trips').replaceChildren(...rows);
+}
+
+// id выводится из содержимого поездки: повторная отправка тех же данных (ретрай после обрыва сети,
+// двойной клик, правка поля туда и обратно) всегда даёт тот же id, и сервер не создаёт дубль.
+async function tripId(trip) {
+  const key = [trip.start, trip.end, trip.amount, trip.payment, trip.commission].join('|');
+  const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(key)));
+  return 'web-' + [...hash.slice(0, 12)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 $('prev').onclick = () => { $('date').value = shift($('date').value, -1); load(); };
@@ -74,26 +170,43 @@ $('date').onchange = load;
 $('add').onsubmit = async (e) => {
   e.preventDefault();
   const f = new FormData(e.target), d = $('date').value;
-  let endDay = d;
-  if (f.get('end') <= f.get('start')) endDay = shift(d, 1); // поездка через полночь
-  // id генерируется один раз на заполненную форму: повторный клик/ретрай после сбоя сети не создаст дубль
-  pendingId ??= 'web-' + crypto.randomUUID();
-  const body = {
-    id: pendingId,
-    start: `${d}T${f.get('start')}:00+05:00`, end: `${endDay}T${f.get('end')}:00+05:00`,
+  if (f.get('start') === f.get('end')) return showMsg('Окончание должно быть позже начала', true);
+  const endDay = f.get('end') < f.get('start') ? shift(d, 1) : d; // поездка через полночь
+  const trip = {
+    start: `${d}T${f.get('start')}:00${offset}`, end: `${endDay}T${f.get('end')}:00${offset}`,
     amount: Number(f.get('amount')), commission: Number(f.get('commission')), payment: f.get('payment'),
   };
-  const res = await fetch('/api/trips', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  const j = await res.json();
-  $('msg').className = res.ok ? '' : 'err';
-  $('msg').textContent = res.ok ? (j.duplicate ? 'Эта поездка уже сохранена' : 'Поездка добавлена') : j.errors.map(esc).join('; ');
-  if (res.ok) { pendingId = null; e.target.reset(); load(); }
+  const button = e.target.querySelector('button.primary');
+  button.disabled = true;
+  try {
+    const { res, body } = await api('/api/trips', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: await tripId(trip), ...trip }),
+    });
+    if (!res.ok) throw new Error(body.errors.join('; '));
+    showMsg(body.duplicate ? 'Эта поездка уже сохранена' : 'Поездка добавлена', false);
+    e.target.reset();
+    load();
+  } catch (err) {
+    showMsg(err.message, true);
+  } finally {
+    button.disabled = false;
+  }
 };
-$('add').oninput = () => { pendingId = null; };
 
-fetch('/api/days').then((r) => r.json()).then(({ days }) => {
-  $('date').value = new URLSearchParams(location.search).get('date') ?? days.at(-1) ?? new Date().toISOString().slice(0, 10);
+function applyTheme(choice) {
+  if (choice === 'auto') delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = choice;
+  try { localStorage.setItem('theme', choice); } catch {}
+  document.querySelectorAll('[data-theme-choice]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.themeChoice === choice)));
+}
+document.querySelectorAll('[data-theme-choice]').forEach((b) => b.onclick = () => applyTheme(b.dataset.themeChoice));
+applyTheme(document.documentElement.dataset.theme ?? 'auto');
+
+api('/api/days').then(({ body }) => {
+  offset = body.offset;
+  const fromUrl = new URLSearchParams(location.search).get('date');
+  $('date').value = /^\d{4}-\d{2}-\d{2}$/.test(fromUrl ?? '') ? fromUrl : body.days.at(-1) ?? todayInOffset();
   load();
-});
+}).catch((e) => showMsg(e.message, true));
 </script>
 </body></html>
